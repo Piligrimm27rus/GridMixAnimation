@@ -4,70 +4,47 @@ using UnityEngine;
 
 public class GridController : MonoBehaviour
 {
-    [SerializeField] InputField heightField;
-    [SerializeField] InputField widthField;
+    [SerializeField] InputField heightInputField;
+    [SerializeField] InputField widthInputField;
 
     [SerializeField] GameObject letterPrefab;
     [SerializeField] Canvas canvas;
 
-    private RectTransform[,] lettersArray;
+    private RectTransform[,] lettersInCanvasArray;
+    private RectTransform canvasRectTransform;
     private string letterLine;
 
-    //для перемешивания
+    //Для перемешивания букв
     private float nextPushBtnTime;
     private float pushRate = 2f;
-    private float timeMix = 0.0625f;
+    private float lerpTime = 0.0625f;
 
+    //Пропорции сетки для букв
     [Range(.5f, .8f)]
-    [SerializeField] float proportionX = 0.8f;
+    [SerializeField] float proportionGridX = 0.8f;
     [Range(.5f, .8f)]
-    [SerializeField] float proportionY = 0.8f;
+    [SerializeField] float proportionGridY = 0.8f;
 
     private void Start()
     {
-        heightField = heightField.GetComponent<InputField>();
-        widthField = widthField.GetComponent<InputField>();
+        heightInputField = heightInputField.GetComponent<InputField>();
+        widthInputField = widthInputField.GetComponent<InputField>();
+        canvasRectTransform = canvas.GetComponent<RectTransform>();
     }
 
-
-    private void FillElementsInCanvas(string line, int p_width, int p_height)
-    {
-
-        float spaceBetweenX = canvas.GetComponent<RectTransform>().rect.width * proportionX / p_width; //пробелы между буквами
-        float spaceBetweenY = canvas.GetComponent<RectTransform>().rect.height * proportionY / p_height; //пробелы между буквами
-
-        for (int i = 0; i < p_height; i++)
-        {
-            for (int k = 0; k < p_width; k++)
-            {
-                GameObject letter_ = Instantiate(letterPrefab, canvas.transform);
-
-                letter_.GetComponent<Text>().text += line[i + k];
-
-                RectTransform letterRectTransform = letter_.GetComponent<RectTransform>();
-                lettersArray[i, k] = letterRectTransform;
-
-                letterRectTransform.anchoredPosition = new Vector2(letterRectTransform.anchoredPosition.x - spaceBetweenX * p_width / 2, letterRectTransform.anchoredPosition.y + spaceBetweenY * p_height / 2); //элемент в левом верхнем углу
-
-                Vector2 offset = new Vector2(letterRectTransform.anchoredPosition.x + spaceBetweenX * (k + 0.5f), letterRectTransform.anchoredPosition.y - spaceBetweenY * (i + 0.5f));
-
-                letterRectTransform.anchoredPosition = offset;
-            }
-        }
-    }
-
+    #region Buttons
     public void GenerateBtn()
     {
-        if (!string.IsNullOrEmpty(heightField.text) && !string.IsNullOrEmpty(widthField.text))
+        if (!string.IsNullOrEmpty(heightInputField.text) && !string.IsNullOrEmpty(widthInputField.text))
         {
             letterLine = "";
-            if (lettersArray != null)
+            if (lettersInCanvasArray != null)
                 DeleteLettersInScene();
 
-            int height = int.Parse(heightField.text);
-            int width = int.Parse(widthField.text);
+            int height = int.Parse(heightInputField.text);
+            int width = int.Parse(widthInputField.text);
 
-            lettersArray = new RectTransform[height, width];
+            lettersInCanvasArray = new RectTransform[height, width];
 
             for (int i = 0; i < height * width; i++)
             {
@@ -75,15 +52,6 @@ public class GridController : MonoBehaviour
             }
 
             FillElementsInCanvas(letterLine, width, height);
-        }
-    }
-
-    IEnumerator LerpLetter(RectTransform rectTransform, Vector2 endPosition)
-    {
-        while (rectTransform.anchoredPosition != endPosition)
-        {
-            rectTransform.anchoredPosition = Vector2.Lerp(rectTransform.anchoredPosition, endPosition, timeMix);
-            yield return null;
         }
     }
 
@@ -95,18 +63,45 @@ public class GridController : MonoBehaviour
         if (Time.time >= nextPushBtnTime)
         {
             StopAllCoroutines();
-            Vector2[,] mixLetterArray = GenerateNewRandomVectorArray(lettersArray);
+            Vector2[,] newPlaceLettersArray = GenerateNewRandomVectorArray(lettersInCanvasArray);
 
 
-            for (int i = 0; i < lettersArray.GetLength(0); i++)
+            for (int i = 0; i < lettersInCanvasArray.GetLength(0); i++)
             {
-                for (int k = 0; k < lettersArray.GetLength(1); k++)
+                for (int k = 0; k < lettersInCanvasArray.GetLength(1); k++)
                 {
-
-                    StartCoroutine(LerpLetter(lettersArray[i, k], mixLetterArray[i, k]));
+                    StartCoroutine(LerpLetter(lettersInCanvasArray[i, k], newPlaceLettersArray[i, k]));
                 }
             }
             nextPushBtnTime = Time.time + pushRate;
+        }
+    }
+    #endregion
+
+    #region methods
+    private void FillElementsInCanvas(string line, int p_width, int p_height)
+    {
+
+        float spaceBetweenLettersX = canvasRectTransform.rect.width * proportionGridX / p_width; //пробелы между буквами
+        float spaceBetweenLettersY = canvasRectTransform.rect.height * proportionGridY / p_height; //пробелы между буквами
+
+        for (int i = 0; i < p_height; i++)
+        {
+            for (int k = 0; k < p_width; k++)
+            {
+                GameObject letter_ = Instantiate(letterPrefab, canvas.transform);
+
+                letter_.GetComponent<Text>().text += line[i + k];
+
+                RectTransform letterRectTransform = letter_.GetComponent<RectTransform>();
+                lettersInCanvasArray[i, k] = letterRectTransform;
+
+                letterRectTransform.anchoredPosition = new Vector2(letterRectTransform.anchoredPosition.x - spaceBetweenLettersX * p_width / 2, letterRectTransform.anchoredPosition.y + spaceBetweenLettersY * p_height / 2); //элемент в левом верхнем углу
+
+                Vector2 offset = new Vector2(letterRectTransform.anchoredPosition.x + spaceBetweenLettersX * (k + 0.5f), letterRectTransform.anchoredPosition.y - spaceBetweenLettersY * (i + 0.5f));
+
+                letterRectTransform.anchoredPosition = offset;
+            }
         }
     }
 
@@ -116,7 +111,7 @@ public class GridController : MonoBehaviour
         Vector2[] tempArray = new Vector2[array.GetLength(0) * array.GetLength(1)];
         int temp = 0;
 
-        for (int i = 0; i < array.GetLength(0); i++)
+        for (int i = 0; i < array.GetLength(0); i++) //делает одномерный массив
         {
             for (int k = 0; k < array.GetLength(1); k++)
             {
@@ -125,7 +120,7 @@ public class GridController : MonoBehaviour
             }
         }
 
-        for (int i = tempArray.Length - 1; i >= 1; i--)
+        for (int i = tempArray.Length - 1; i >= 1; i--) //перемешивает его
         {
             int j = Random.Range(0, i + 1);
             Vector2 tempV = tempArray[j];
@@ -134,7 +129,7 @@ public class GridController : MonoBehaviour
         }
 
         temp = 0;
-        for (int i = 0; i < array.GetLength(0); ++i)
+        for (int i = 0; i < array.GetLength(0); ++i) //из одномерного в двумерный
             for (int j = 0; j < array.GetLength(1); ++j)
             {
                 vectorsArray[i, j] = tempArray[temp];
@@ -147,12 +142,24 @@ public class GridController : MonoBehaviour
     private void DeleteLettersInScene()
     {
         StopAllCoroutines();
-        for (int i = 0; i < lettersArray.GetLength(0); i++)
+        for (int i = 0; i < lettersInCanvasArray.GetLength(0); i++)
         {
-            for (int k = 0; k < lettersArray.GetLength(1); k++)
+            for (int k = 0; k < lettersInCanvasArray.GetLength(1); k++)
             {
-                Destroy(lettersArray[i, k].gameObject);
+                Destroy(lettersInCanvasArray[i, k].gameObject);
             }
         }
     }
+    #endregion
+
+    #region IEnumerator
+    IEnumerator LerpLetter(RectTransform letter, Vector2 endPosition)
+    {
+        while (letter.anchoredPosition != endPosition)
+        {
+            letter.anchoredPosition = Vector2.Lerp(letter.anchoredPosition, endPosition, lerpTime);
+            yield return null;
+        }
+    }
+    #endregion
 }
